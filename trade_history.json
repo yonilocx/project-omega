@@ -1,0 +1,342 @@
+[
+  {
+    "timestamp": "2026-08-23 19:19:19 UTC",
+    "symbol": "BTC/USDT",
+    "timeframe": "15m",
+    "current_price": 77377.47,
+    "signal": "BUY",
+    "reason": "Bullish trend confirmed. Price retesting Bullish Order Block.",
+    "ema_20": 77283.03,
+    "ema_50": 77063.61,
+    "order_block": {
+      "type": "BULLISH_OB",
+      "high": 77411.03,
+      "low": 77255.99
+    },
+    "fvg": {
+      "type": "BULLISH_FVG",
+      "top": 77360.0,
+      "bottom": 77328.0
+    }
+  },
+  {
+    "timestamp": "2026-08-23 19:49:01 UTC",
+    "symbol": "BTC/USDT",
+    "timeframe": "15m",
+    "current_price": 77421.93,
+    "signal": "HOLD",
+    "reason": "No high-probability setup detected.",
+    "ema_20": 77306.81,
+    "ema_50": 77058.91,
+    "order_block": {
+      "type": "BULLISH_OB",
+      "high": 77411.03,
+      "low": 77255.99
+    },
+    "fvg": {
+      "type": "BULLISH_FVG",
+      "top": 77360.0,
+      "bottom": 77328.0
+    }
+  },
+  {
+    "timestamp": "2026-08-23 20:00:02 UTC",
+    "symbol": "BTC/USDT",
+    "timeframe": "15m",
+    "current_price": 77346.01,
+    "signal": "BUY",
+    "reason": "Bullish trend confirmed. Price retesting Bullish Order Block.",
+    "ema_20": 77303.65,
+    "ema_50": 77060.33,
+    "order_block": {
+      "type": "BULLISH_OB",
+      "high": 77411.03,
+      "low": 77255.99
+    },
+    "fvg": {
+      "type": "BULLISH_FVG",
+      "top": 77360.0,
+      "bottom": 77328.0
+    }
+  },
+  {
+    "timestamp": "2026-08-23 20:03:39 UTC",
+    "symbol": "BTC/USDT",
+    "timeframe": "15m",
+    "current_price": 77268.25,
+    "signal": "BUY",
+    "reason": "Bullish trend confirmed. Price retesting Bullish Order Block.",
+    "ema_20": 77296.25,
+    "ema_50": 77057.28,
+    "order_block": {
+      "type": "BULLISH_OB",
+      "high": 77411.03,
+      "low": 77255.99
+    },
+    "fvg": {
+      "type": "BULLISH_FVG",
+      "top": 77360.0,
+      "bottom": 77328.0
+    }
+  },
+  {
+    "timestamp": "2026-08-23 20:04:15 UTC",
+    "symbol": "BTC/USDT",
+    "timeframe": "15m",
+    "current_price": 77258.01,
+    "signal": "BUY",
+    "reason": "Bullish trend confirmed. Price retesting Bullish Order Block.",
+    "ema_20": 77295.27,
+    "ema_50": 77056.88,
+    "order_block": {
+      "type": "BULLISH_OB",
+      "high": 77411.03,
+      "low": 77255.99
+    },
+    "fvg": {
+      "type": "BULLISH_FVG",
+      "top": 77360.0,
+      "bottom": 77328.0
+    }
+  },
+  {
+    "timestamp": "2026-08-23 20:15:16 UTC",
+    "symbol": "BTC/USDT",
+    "timeframe": "15m",
+    "current_price": 77274.49,
+    "signal": "BUY",
+    "reason": "Bullish trend confirmed. Price retesting Bullish Order Block.",
+    "ema_20": 77295.83,
+    "ema_50": 77092.86,
+    "order_block": {
+      "type": "BULLISH_OB",
+      "high": 77411.03,
+      "low": 77255.99
+    },
+    "fvg": {
+      "type": "BEARISH_FVG",
+      "top": 77329.27,
+      "bottom": 77274.49
+    }
+  },
+  {
+    "timestamp": "2026-08-23 20:18:54 UTC",
+    "symbol": "BTC/USDT",
+    "timeframe": "15m",
+    "current_price": 77307.12,
+    "signal": "BUY",
+    "reason": "Bullish trend confirmed. Price retesting Bullish Order Block.",
+    "ema_20": 77298.94,
+    "ema_50": 77094.14,
+    "order_block": {
+      "type": "BULLISH_OB",
+      "high": 77411.03,
+      "low": 77255.99
+    },
+    "fvg": {
+      "type": "BEARISH_FVG",
+      "top": 77329.27,
+      "bottom": 77307.12
+    }
+  },
+  {
+    "timestamp": "2026-08-23 20:19:34 UTC",
+    "symbol": "BTC/USDT",
+    "timeframe": "15m",
+    "current_price": 77305.47,
+    "signal": "BUY",
+    "reason": "Bullish trend confirmed. Price retesting Bullish Order Block.",
+    "ema_20": 77298.78,
+    "ema_50": 77094.08,
+    "order_block": {
+      "type": "BULLISH_OB",
+      "high": 77411.03,
+      "low": 77255.99
+    },
+    "fvg": {
+      "type": "BEARISH_FVG",
+      "top": 77329.27,
+      "bottom": 77307.12
+    }
+  },
+  {
+    "timestamp": "2026-08-23 20:30:39 UTC",
+    "symbol": "BTC/USDT",
+    "timeframe": "15m",
+    "current_price": 77386.0,
+    "signal": "HOLD",
+    "reason": "No high-probability setup detected.",
+    "ema_20": 77314.33,
+    "ema_50": 77112.69,
+    "order_block": {
+      "type": "BULLISH_OB",
+      "high": 77346.01,
+      "low": 77200.03
+    },
+    "fvg": {
+      "type": "BULLISH_FVG",
+      "top": 77385.99,
+      "bottom": 77346.01
+    }
+  },
+  {
+    "timestamp": "2026-08-23 20:34:21 UTC",
+    "symbol": "BTC/USDT",
+    "timeframe": "15m",
+    "current_price": 77400.47,
+    "signal": "HOLD",
+    "reason": "No high-probability setup detected.",
+    "ema_20": 77315.71,
+    "ema_50": 77113.26,
+    "order_block": {
+      "type": "BULLISH_OB",
+      "high": 77346.01,
+      "low": 77200.03
+    },
+    "fvg": {
+      "type": "BULLISH_FVG",
+      "top": 77385.99,
+      "bottom": 77346.01
+    }
+  },
+  {
+    "timestamp": "2026-08-23 20:45:58 UTC",
+    "symbol": "BTC/USDT",
+    "timeframe": "15m",
+    "current_price": 77411.76,
+    "signal": "HOLD",
+    "reason": "No high-probability setup detected.",
+    "ema_20": 77329.13,
+    "ema_50": 77164.35,
+    "order_block": {
+      "type": "BULLISH_OB",
+      "high": 77346.01,
+      "low": 77200.03
+    },
+    "fvg": {
+      "type": "BULLISH_FVG",
+      "top": 77385.99,
+      "bottom": 77346.01
+    }
+  },
+  {
+    "timestamp": "2026-08-23 20:50:37 UTC",
+    "symbol": "BTC/USDT",
+    "timeframe": "15m",
+    "current_price": 77412.92,
+    "signal": "HOLD",
+    "reason": "No high-probability setup detected.",
+    "ema_20": 77329.25,
+    "ema_50": 77164.39,
+    "order_block": {
+      "type": "BULLISH_OB",
+      "high": 77346.01,
+      "low": 77200.03
+    },
+    "fvg": {
+      "type": "BULLISH_FVG",
+      "top": 77385.99,
+      "bottom": 77346.01
+    }
+  },
+  {
+    "timestamp": "2026-08-23 20:50:44 UTC",
+    "symbol": "BTC/USDT",
+    "timeframe": "15m",
+    "current_price": 77421.42,
+    "signal": "HOLD",
+    "reason": "No high-probability setup detected.",
+    "ema_20": 77330.05,
+    "ema_50": 77164.73,
+    "order_block": {
+      "type": "BULLISH_OB",
+      "high": 77346.01,
+      "low": 77200.03
+    },
+    "fvg": {
+      "type": "BULLISH_FVG",
+      "top": 77385.99,
+      "bottom": 77346.01
+    }
+  },
+  {
+    "timestamp": "2026-08-23 21:01:12 UTC",
+    "symbol": "BTC/USDT",
+    "timeframe": "15m",
+    "current_price": 77457.36,
+    "signal": "HOLD",
+    "reason": "No high-probability setup detected.",
+    "ema_20": 77340.25,
+    "ema_50": 77170.95,
+    "order_block": {
+      "type": "BULLISH_OB",
+      "high": 77434.89,
+      "low": 77390.94
+    },
+    "fvg": {
+      "type": "BULLISH_FVG",
+      "top": 77385.99,
+      "bottom": 77346.01
+    }
+  },
+  {
+    "timestamp": "2026-08-23 21:06:09 UTC",
+    "symbol": "BTC/USDT",
+    "timeframe": "15m",
+    "current_price": 77649.76,
+    "signal": "HOLD",
+    "reason": "No high-probability setup detected.",
+    "ema_20": 77358.57,
+    "ema_50": 77178.5,
+    "order_block": {
+      "type": "BULLISH_OB",
+      "high": 77434.89,
+      "low": 77390.94
+    },
+    "fvg": {
+      "type": "BULLISH_FVG",
+      "top": 77385.99,
+      "bottom": 77346.01
+    }
+  },
+  {
+    "timestamp": "2026-08-23 21:06:12 UTC",
+    "symbol": "BTC/USDT",
+    "timeframe": "15m",
+    "current_price": 77649.75,
+    "signal": "HOLD",
+    "reason": "No high-probability setup detected.",
+    "ema_20": 77358.57,
+    "ema_50": 77178.5,
+    "order_block": {
+      "type": "BULLISH_OB",
+      "high": 77434.89,
+      "low": 77390.94
+    },
+    "fvg": {
+      "type": "BULLISH_FVG",
+      "top": 77385.99,
+      "bottom": 77346.01
+    }
+  },
+  {
+    "timestamp": "2026-08-23 21:16:22 UTC",
+    "symbol": "BTC/USDT",
+    "timeframe": "15m",
+    "current_price": 77852.79,
+    "signal": "HOLD",
+    "reason": "No high-probability setup detected.",
+    "ema_20": 77410.39,
+    "ema_50": 77219.29,
+    "order_block": {
+      "type": "BULLISH_OB",
+      "high": 77434.89,
+      "low": 77390.94
+    },
+    "fvg": {
+      "type": "BULLISH_FVG",
+      "top": 77697.69,
+      "bottom": 77434.89
+    }
+  }
+]
