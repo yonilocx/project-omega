@@ -1,58 +1,84 @@
-import sys
-import json
+﻿# -*- coding: utf-8 -*-
+import os
+import ccxt
+from dotenv import load_dotenv
 
-try:
-    from skills.notify import send_telegram_alert
-except ImportError:
-    from notify import send_telegram_alert
+load_dotenv()
 
-class BrokerExecutor:
-    def __init__(self):
-        pass
+api_key = os.getenv("BINANCE_API_KEY")
+secret_key = os.getenv("BINANCE_SECRET_KEY")
 
-    def execute_order(self, symbol, side, amount, stop_loss_price=None, take_profit_price=None):
-        side_upper = side.upper()
+# Initialize Binance USDT-M Futures
+exchange = ccxt.binance({
+    'apiKey': api_key,
+    'secret': secret_key,
+    'enableRateLimit': True,
+    'options': {
+        'defaultType': 'future'  # Futures execution mode
+    }
+})
+
+def check_futures_balance(asset="USDT"):
+    try:
+        balance = exchange.fetch_balance()
+        return balance['free'].get(asset, 0.0)
+    except Exception as e:
+        print(f"Error fetching futures balance: {e}")
+        return None
+
+def set_leverage(symbol, leverage=10):
+    try:
+        response = exchange.set_leverage(leverage, symbol)
+        print(f"Leverage set to {leverage}x for {symbol}")
+        return response
+    except Exception as e:
+        print(f"Failed to set leverage for {symbol}: {e}")
+        return None
+
+def execute_futures_order(symbol, side, amount, stop_loss=None, take_profit=None):
+    """Executes market order on Binance USDT-M Futures with optional SL/TP."""
+    try:
+        side = side.lower()
+        print(f"Sending Futures {side.upper()} order for {symbol} | Amount: {amount}")
         
-        order_details = {
-            "status": "FILLED",
-            "symbol": symbol,
-            "side": side_upper,
-            "amount": float(amount),
-            "stop_loss": float(stop_loss_price) if stop_loss_price else None,
-            "take_profit": float(take_profit_price) if take_profit_price else None
-        }
+        # Primary Entry Order
+        order = exchange.create_market_order(symbol, side, amount)
+        print(f"Entry Executed! Order ID: {order['id']}")
 
-        # Format Telegram Notification Message
-        alert_message = (
-            f"?? <b>PROJECT OMEGA TRADE EXECUTED</b> ??\n\n"
-            f"<b>Symbol:</b> {symbol}\n"
-            f"<b>Action:</b> {side_upper}\n"
-            f"<b>Amount:</b> {amount}\n"
-            f"<b>Stop Loss:</b> ${stop_loss_price:.2f}\n"
-            f"<b>Take Profit:</b> ${take_profit_price:.2f}\n"
-            f"<b>Status:</b> FILLED"
-        )
-        
-        # Trigger Telegram Alert
-        send_telegram_alert(alert_message)
+        # Opposite side for exits
+        exit_side = 'sell' if side == 'buy' else 'buy'
 
-        return {
-            "success": True,
-            "message": f"Order executed successfully for {symbol}",
-            "order_details": order_details
-        }
+        # Stop Loss
+        if stop_loss:
+            exchange.create_order(
+                symbol=symbol,
+                type='STOP_MARKET',
+                side=exit_side,
+                amount=amount,
+                params={'stopPrice': stop_loss, 'reduceOnly': True}
+            )
+            print(f"Stop Loss set at {stop_loss}")
+
+        # Take Profit
+        if take_profit:
+            exchange.create_order(
+                symbol=symbol,
+                type='TAKE_PROFIT_MARKET',
+                side=exit_side,
+                amount=amount,
+                params={'stopPrice': take_profit, 'reduceOnly': True}
+            )
+            print(f"Take Profit set at {take_profit}")
+
+        return order
+    except Exception as e:
+        print(f"Futures Execution Failed: {e}")
+        return None
 
 if __name__ == "__main__":
-    if len(sys.argv) < 5:
-        print(json.dumps({"error": "Usage: python broker_exec.py <symbol> <side> <amount> <stop_loss> [take_profit]"}))
-        sys.exit(1)
-
-    sym = sys.argv[1]
-    order_side = sys.argv[2]
-    qty = float(sys.argv[3])
-    sl = float(sys.argv[4])
-    tp = float(sys.argv[5]) if len(sys.argv) > 5 else None
-
-    executor = BrokerExecutor()
-    result = executor.execute_order(symbol=sym, side=order_side, amount=qty, stop_loss_price=sl, take_profit_price=tp)
-    print(json.dumps(result, indent=2))
+    print("Testing Binance USDT-M Futures Connection...")
+    usdt_bal = check_futures_balance("USDT")
+    if usdt_bal is not None:
+        print(f"Futures Balance: ${usdt_bal} USDT")
+    else:
+        print("Failed to connect to Futures API. Make sure 'Enable Futures' is checked in your Binance API settings.")
