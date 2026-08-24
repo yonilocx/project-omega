@@ -17,7 +17,6 @@ def send_telegram_alert(message, image_path=None):
         print("Telegram credentials missing in .env")
         return
     
-    # Send text message
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
     payload = {"chat_id": CHAT_ID, "text": message, "parse_mode": "Markdown"}
     try:
@@ -25,7 +24,6 @@ def send_telegram_alert(message, image_path=None):
     except Exception as e:
         print(f"Error sending text alert: {e}")
 
-    # Send photo with FVG and SL marked
     if image_path and os.path.exists(image_path):
         photo_url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendPhoto"
         try:
@@ -35,38 +33,49 @@ def send_telegram_alert(message, image_path=None):
             print(f"Error sending photo alert: {e}")
 
 def generate_ict_chart(df, setup_info):
-    plot_df = df.tail(30).copy()
+    plot_df = df.tail(40).copy()
     if isinstance(plot_df.columns, pd.MultiIndex):
         plot_df.columns = plot_df.columns.get_level_values(0)
 
-    # Line markers for SL, Entry, and TP
+    # Plot Entry, TP, and SL lines
     hlines = [setup_info["sl"], setup_info["price"], setup_info["tp"]]
-    colors = ['red', 'blue', 'green']
+    colors = ['#ff4d4d', '#00bcff', '#00ff7f']
+
+    # Custom dark theme for Project Omega
+    mc = mpf.make_marketcolors(
+        up='#00ff7f', down='#ff4d4d',
+        edge='inherit', wick='inherit',
+        volume='in', ohlc='inherit'
+    )
+    s = mpf.make_mpf_style(base_mpf_style='nightclouds', marketcolors=mc, gridcolor='#222')
 
     fig, axlist = mpf.plot(
         plot_df,
         type='candle',
-        style='charles',
-        title=f"XAUUSD 15M - {setup_info['type']} Setup",
+        style=s,
+        title=f"\nPROJECT OMEGA: XAUUSD 15M - {setup_info['type']} SETUP",
         ylabel='Price ($)',
-        hlines=dict(hlines=hlines, colors=colors, linestyle='--'),
+        hlines=dict(hlines=hlines, colors=colors, linestyle='--', linewidths=1.5),
         returnfig=True,
-        figsize=(10, 6)
+        figsize=(11, 6)
     )
 
     ax = axlist[0]
     
-    # Highlight the FVG box region on the chart
+    # AI highlights FVG Zone automatically
     fvg_top = setup_info["fvg_top"]
     fvg_bottom = setup_info["fvg_bottom"]
-    ax.axhspan(fvg_bottom, fvg_top, color='gold', alpha=0.3, label='FVG Zone')
+    ax.axhspan(fvg_bottom, fvg_top, color='#f0b90b', alpha=0.35, label='15M FVG Zone')
     
-    # Annotate SL and FVG
-    ax.text(plot_df.index[-1], setup_info["sl"], f" SL: ${setup_info['sl']:.2f}", color='red', fontweight='bold')
-    ax.text(plot_df.index[-1], (fvg_top + fvg_bottom) / 2, " FVG Zone", color='darkgoldenrod', fontweight='bold')
+    # Dynamic Level Labels
+    last_idx = plot_df.index[-1]
+    ax.text(last_idx, setup_info["sl"], f" SL: ${setup_info['sl']:.2f}", color='#ff4d4d', fontweight='bold', fontsize=9)
+    ax.text(last_idx, setup_info["price"], f" ENTRY: ${setup_info['price']:.2f}", color='#00bcff', fontweight='bold', fontsize=9)
+    ax.text(last_idx, setup_info["tp"], f" TP: ${setup_info['tp']:.2f}", color='#00ff7f', fontweight='bold', fontsize=9)
+    ax.text(last_idx, (fvg_top + fvg_bottom) / 2, " AI FVG ZONE", color='#f0b90b', fontweight='bold', fontsize=9)
 
     chart_file = "ict_setup.png"
-    fig.savefig(chart_file, bbox_inches='tight')
+    fig.savefig(chart_file, bbox_inches='tight', dpi=150)
     return chart_file
 
 def detect_ict_setup():
@@ -127,7 +136,6 @@ def run_ict_scanner():
         s_tp = setup["tp"]
         s_sl = setup["sl"]
         
-        # Generate chart with FVG box and SL line
         chart_path = generate_ict_chart(data, setup)
         
         alert_msg = (
@@ -141,7 +149,7 @@ def run_ict_scanner():
         
         send_telegram_alert(alert_msg, image_path=chart_path)
         log_ict_trade(s_type, s_price, s_setup, s_tp, s_sl)
-        print(f"Signal Found: {s_type} logged, plotted, and pushed!")
+        print(f"Signal Found: {s_type} analyzed, plotted, and saved to ict_setup.png!")
     else:
         print("Scan complete. No active FVG/BOS setup on current 15M candle.")
 
