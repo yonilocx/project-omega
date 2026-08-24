@@ -1,8 +1,4 @@
-send_gold_signal(
-    direction="BUY", 
-    entry_min=4700.00, 
-    entry_max=4702.00, 
-    sl=4698.00, 
-    tp1=4710.00, 
-    tp2=4716.70
-)
+# Place test call at the VERY BOTTOM of the file after all functions are defined
+if __name__ == "__main__":
+    # To run the live scanner loop:
+    run_precision_ict_scanner()
