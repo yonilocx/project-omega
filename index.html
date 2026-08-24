@@ -9,7 +9,11 @@
         input { padding: 12px; font-size: 16px; border-radius: 5px; border: 1px solid #444; background: #222; color: #fff; width: 220px; text-align: center; }
         button { padding: 12px 24px; font-size: 16px; margin-top: 10px; border-radius: 5px; border: none; background: #f0b90b; color: #000; font-weight: bold; cursor: pointer; }
         .dashboard { display: none; margin-top: 20px; }
-        .chart-box { height: 550px; width: 100%; max-width: 1200px; margin: 0 auto; }
+        .chart-box { height: 500px; width: 100%; max-width: 1200px; margin: 0 auto; }
+        .table-box { max-width: 1200px; margin: 20px auto; background: #1e1e1e; padding: 20px; border-radius: 8px; text-align: left; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px; }
+        th, td { border-bottom: 1px solid #2a2a2a; padding: 10px; }
+        th { color: #888; text-align: left; }
     </style>
 </head>
 <body>
@@ -26,19 +30,36 @@
         <h1 style="color: #f0b90b;">Project Omega: Gold ICT Dashboard</h1>
         <p>Live Asian Range Sweeps, BOS, FVG, & Execution Monitoring</p>
         <div class="chart-box" id="tv_chart"></div>
+
+        <div class="table-box">
+            <h3 style="color: #f0b90b; margin-top: 0;">Trade Execution Log & Level History</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Time</th>
+                        <th>Type</th>
+                        <th>Price</th>
+                        <th>ICT Confluence</th>
+                        <th>TP / SL</th>
+                    </tr>
+                </thead>
+                <tbody id="trade-rows">
+                    <tr><td colspan="5" style="color: #666;">Waiting for trade signals...</td></tr>
+                </tbody>
+            </table>
+        </div>
     </div>
 
     <script src="https://s3.tradingview.com/tv.js"></script>
     <script>
         function unlockTerminal() {
             var input = document.getElementById("passcode").value;
-            // PASSCODE SET TO: omega2026
             if (input === "omega2026") {
                 document.getElementById("login-overlay").style.display = "none";
                 document.getElementById("main-terminal").style.display = "block";
                 new TradingView.widget({
                     "width": "100%",
-                    "height": 550,
+                    "height": 500,
                     "symbol": "OANDA:XAUUSD",
                     "interval": "15",
                     "timezone": "Etc/UTC",
@@ -50,9 +71,30 @@
                     "allow_symbol_change": true,
                     "container_id": "tv_chart"
                 });
+                loadTradeHistory();
             } else {
                 document.getElementById("err-msg").style.display = "block";
             }
+        }
+
+        async function loadTradeHistory() {
+            try {
+                const response = await fetch("trades.json?v=" + new Date().getTime());
+                const data = await response.json();
+                const tbody = document.getElementById("trade-rows");
+                tbody.innerHTML = "";
+                data.forEach(trade => {
+                    const color = trade.type === "BUY" ? "#00c853" : "#ff5252";
+                    const row = `<tr>
+                        <td>${trade.timestamp}</td>
+                        <td style="color: ${color}; font-weight: bold;">${trade.type}</td>
+                        <td>${trade.price}</td>
+                        <td>${trade.setup}</td>
+                        <td style="color: #aaa;">${trade.tp_sl}</td>
+                    </tr>`;
+                    tbody.innerHTML += row;
+                });
+            } catch(e) {}
         }
     </script>
 </body>
