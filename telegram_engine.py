@@ -3,38 +3,69 @@ import time
 from datetime import datetime, timezone
 import yfinance as yf
 import requests
+import matplotlib.pyplot as plt
+import mplfinance as mpf
 
 # ---------------------------------------------------------
 # CONFIGURATION
 # ---------------------------------------------------------
-TELEGRAM_BOT_TOKEN = "YOUR_BOT_TOKEN_HERE"  # Keep your token here
-TELEGRAM_CHAT_ID = "YOUR_CHAT_ID_HERE"      # Keep your chat ID here
+TELEGRAM_BOT_TOKEN = "YOUR_BOT_TOKEN_HERE"
+TELEGRAM_CHAT_ID = "YOUR_CHAT_ID_HERE"
 
 ACCOUNT_BALANCE = 100.0   # $100 Account
 RISK_PERCENT = 0.02       # 2% Risk = $2.00 Max Risk per trade
 
 # ---------------------------------------------------------
-# TELEGRAM NOTIFIER
+# CHART GENERATOR & TELEGRAM SENDER
 # ---------------------------------------------------------
-def send_telegram_message(message):
-    if TELEGRAM_BOT_TOKEN == "YOUR_BOT_TOKEN_HERE":
-        print(f"[Telegram Alert Output]:\n{message}\n")
-        return
-    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
-    payload = {"chat_id": TELEGRAM_CHAT_ID, "text": message, "parse_mode": "Markdown"}
-    try:
-        requests.post(url, json=payload, timeout=10)
-    except Exception as e:
-        print(f"Failed to send Telegram message: {e}")
-
-def send_gold_signal(direction, entry_min, entry_max, sl, tp1, tp2):
-    sl_distance = abs(entry_min - sl)
+def generate_and_send_chart(df, direction, entry_min, entry_max, sl, tp1, tp2, asia_high, asia_low):
+    chart_filename = "ict_gold_setup.png"
     
-    # 2% Risk Calculation ($2.00)
+    # Plot recent 30 candles
+    recent_df = df.tail(30).copy()
+
+    # Define color overlays for levels
+    hlines = [asia_high, asia_low, entry_min, sl, tp1, tp2]
+    colors = ['gray', 'gray', 'blue', 'red', 'green', 'darkgreen']
+    styles = ['--', '--', '-', '-', '-', '-']
+
+    # Generate Chart Image
+    fig, ax = plt.subplots(figsize=(10, 6))
+    mpf.plot(
+        recent_df,
+        type='candle',
+        style='charles',
+        title=f"XAU/USD 15m - ICT {direction} Setup",
+        ylabel='Price ($)',
+        hlines=dict(hlines=hlines, colors=colors, linestyle=styles, linewidths=1.5),
+        savefig=chart_filename
+    )
+    plt.close('all')
+
+    # Send Chart Image to Telegram
+    if TELEGRAM_BOT_TOKEN != "YOUR_BOT_TOKEN_HERE":
+        url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendPhoto"
+        with open(chart_filename, 'rb') as photo:
+            payload = {'chat_id': TELEGRAM_CHAT_ID, 'caption': f"📊 *ICT Chart Snapshot - XAU/USD ({direction})*"}
+            try:
+                requests.post(url, data=payload, files={'photo': photo}, timeout=15)
+            except Exception as e:
+                print(f"Failed to send chart image: {e}")
+
+    # Clean up local image file
+    if os.path.exists(chart_filename):
+        os.remove(chart_filename)
+
+def send_gold_signal(df, direction, entry_min, entry_max, sl, tp1, tp2, asia_high, asia_low):
+    sl_distance = abs(entry_min - sl)
     risk_amount = ACCOUNT_BALANCE * RISK_PERCENT
     calculated_lots = round(risk_amount / (sl_distance * 100), 2)
     lot_size = max(0.01, calculated_lots)
 
+    # First send the chart snapshot
+    generate_and_send_chart(df, direction, entry_min, entry_max, sl, tp1, tp2, asia_high, asia_low)
+
+    # Then send the signal breakdown text
     msg = (
         f"🚨 *PROJECT OMEGA: HIGH-CONVICTION ICT SIGNAL* 🚨\n\n"
         f"📊 *Asset:* GOLD (XAU/USD)\n"
@@ -48,7 +79,14 @@ def send_gold_signal(direction, entry_min, entry_max, sl, tp1, tp2):
         f"• Recommended Lot Size: `{lot_size}`\n\n"
         f"⏳ *Strategy:* Liquidity Sweep + 15m Displacement FVG"
     )
-    send_telegram_message(msg)
+    
+    if TELEGRAM_BOT_TOKEN != "YOUR_BOT_TOKEN_HERE":
+        url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+        payload = {"chat_id": TELEGRAM_CHAT_ID, "text": msg, "parse_mode": "Markdown"}
+        try:
+            requests.post(url, json=payload, timeout=10)
+        except Exception as e:
+            print(f"Failed to send text signal: {e}")
 
 # ---------------------------------------------------------
 # MARKET SCANNER & TIME FILTERS
@@ -61,7 +99,6 @@ def run_precision_ict_scanner():
         current_hour = now_utc.hour
         timestamp = now_utc.strftime("%Y-%m-%d %H:%M UTC")
 
-        # Killzone Filter (London: 07:00-10:00 UTC | NY: 12:00-15:00 UTC)
         in_london = 7 <= current_hour < 10
         in_ny = 12 <= current_hour < 15
 
@@ -73,7 +110,6 @@ def run_precision_ict_scanner():
             continue
 
         try:
-            # Fetch Gold Data
             ticker = yf.Ticker("GC=F")
             df = ticker.history(period="2d", interval="15m")
 
@@ -88,24 +124,17 @@ def run_precision_ict_scanner():
 
             print(f"Current Price: ${current_price:.1f} | Asia High: ${asia_high:.1f} | Asia Low: ${asia_low:.1f}")
 
-            # ICT Setup Condition Evaluation
             if current_price > asia_high:
                 print("🔥 Asia High Swept! Evaluating Short FVG...")
-                # Add setup triggering logic here
             elif current_price < asia_low:
                 print("🔥 Asia Low Swept! Evaluating Long FVG...")
-                # Add setup triggering logic here
             else:
                 print("Price inside Asian range. No active sweep detected.\n")
 
         except Exception as e:
             print(f"Error fetching data: {e}\n")
 
-        # Sleep for 30 minutes before next scan
         time.sleep(1800)
 
-# ---------------------------------------------------------
-# EXECUTION ENTRY POINT
-# ---------------------------------------------------------
 if __name__ == "__main__":
     run_precision_ict_scanner()
