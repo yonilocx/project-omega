@@ -1,152 +1,145 @@
 import os
+import csv
+import datetime
 import requests
 import yfinance as yf
 import pandas as pd
-import mplfinance as mpf
-import matplotlib.dates as mdates
+import MetaTrader5 as mt5
 from dotenv import load_dotenv
-from logger import log_ict_trade
 
 load_dotenv()
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
+LOG_FILE = "trades_log.csv"
 
-BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
-
-def send_telegram_alert(message, image_path=None):
-    if not BOT_TOKEN or not CHAT_ID:
-        print("Telegram credentials missing in .env")
-        return
+# --- Dynamic Risk Management Engine ---
+def calculate_dynamic_lot_size(risk_percent, entry_price, sl_price):
+    if not mt5.initialize():
+        return 0.01  # Safe fallback if MT5 info fetch fails
+        
+    account_info = mt5.account_info()
+    mt5.shutdown()
     
-    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
-    payload = {"chat_id": CHAT_ID, "text": message, "parse_mode": "Markdown"}
+    if account_info is None:
+        return 0.01
+    
+    balance = account_info.balance
+    risk_amount = balance * (risk_percent / 100.0)  # 1% of balance
+    sl_distance = abs(entry_price - sl_price)       # Stop distance in dollars
+    
+    if sl_distance == 0:
+        return 0.01
+        
+    # Gold contract formula: 1 Standard Lot = 100 oz ($1 move = $100 per 1.0 lot)
+    raw_lot = risk_amount / (sl_distance * 100.0)
+    
+    # Round to MT5 0.01 minimum lot step
+    calculated_lot = round(raw_lot, 2)
+    return max(0.01, calculated_lot)
+
+# --- MT5 Execution Engine ---
+def execute_mt5_order(symbol, setup_type, price, sl, tp, risk_percent=1.0):
+    if not mt5.initialize():
+        print(f"❌ MT5 Connection Failed: {mt5.last_error()}")
+        return False
+
+    selected_symbol = symbol
+    symbol_info = mt5.symbol_info(selected_symbol)
+    if symbol_info is None:
+        selected_symbol = "GOLD"
+        symbol_info = mt5.symbol_info(selected_symbol)
+        if symbol_info is None:
+            print("❌ Symbol XAUUSDm/GOLD not found in Exness MT5.")
+            mt5.shutdown()
+            return False
+
+    if not symbol_info.visible:
+        mt5.symbol_select(selected_symbol, True)
+
+    # Dynamic Lot Calculation
+    lot_size = calculate_dynamic_lot_size(risk_percent, price, sl)
+    print(f"🎯 Dynamic Risk Manager: Calculated Lot Size = {lot_size} (Risking {risk_percent}% of balance)")
+
+    order_type = mt5.ORDER_TYPE_BUY_LIMIT if setup_type == "BUY" else mt5.ORDER_TYPE_SELL_LIMIT
+
+    request = {
+        "action": mt5.TRADE_ACTION_PENDING,
+        "symbol": selected_symbol,
+        "volume": float(lot_size),
+        "type": order_type,
+        "price": float(price),
+        "sl": float(sl),
+        "tp": float(tp),
+        "deviation": 20,
+        "magic": 999111,
+        "comment": "Project Omega Dynamic Execution",
+        "type_time": mt5.ORDER_TIME_GTC,
+        "type_filling": mt5.ORDER_FILLING_IOC,
+    }
+
+    result = mt5.order_send(request)
+    if result.retcode == mt5.TRADE_RETCODE_DONE:
+        print(f"✅ Exness Order Placed! Ticket: {result.order}")
+        mt5.shutdown()
+        return True
+    else:
+        print(f"❌ MT5 Execution Failed (Error Code: {result.retcode})")
+        mt5.shutdown()
+        return False
+
+# --- Telegram Alert Dispatcher ---
+def send_telegram_alert(message_text, setup_type, current_price, take_profit):
+    if setup_type == "SELL" and current_price <= take_profit:
+        print("Setup Invalidated: Price hit TP before entry.")
+        return
+    elif setup_type == "BUY" and current_price >= take_profit:
+        print("Setup Invalidated: Price hit TP before entry.")
+        return
+
+    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+    payload = {"chat_id": TELEGRAM_CHAT_ID, "text": message_text, "parse_mode": "Markdown"}
     try:
         requests.post(url, json=payload)
+        print("Telegram alert sent successfully.")
     except Exception as e:
-        print(f"Error sending text alert: {e}")
+        print(f"Telegram Error: {e}")
 
-    if image_path and os.path.exists(image_path):
-        photo_url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendPhoto"
-        try:
-            with open(image_path, "rb") as photo:
-                requests.post(photo_url, data={"chat_id": CHAT_ID}, files={"photo": photo})
-        except Exception as e:
-            print(f"Error sending photo alert: {e}")
+# --- Main Engine ---
+def run_project_omega():
+    timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    print(f"\n--- Running Project Omega Engine [{timestamp}] ---")
 
-def generate_ict_chart(df, setup_info):
-    plot_df = df.tail(40).copy()
-    if isinstance(plot_df.columns, pd.MultiIndex):
-        plot_df.columns = plot_df.columns.get_level_values(0)
+    data_15m = yf.download("GC=F", period="5d", interval="15m", progress=False)
+    data_1h = yf.download("GC=F", period="10d", interval="1h", progress=False)
 
-    hlines = [setup_info["sl"], setup_info["price"], setup_info["tp"]]
-    colors = ['#ff4d4d', '#00bcff', '#00ff7f']
+    if data_15m.empty or data_1h.empty:
+        return
 
-    mc = mpf.make_marketcolors(
-        up='#00ff7f', down='#ff4d4d',
-        edge='inherit', wick='inherit',
-        volume='in', ohlc='inherit'
-    )
-    s = mpf.make_mpf_style(base_mpf_style='nightclouds', marketcolors=mc, gridcolor='#222')
+    if isinstance(data_15m.columns, pd.MultiIndex):
+        data_15m.columns = data_15m.columns.get_level_values(0)
+    if isinstance(data_1h.columns, pd.MultiIndex):
+        data_1h.columns = data_1h.columns.get_level_values(0)
 
-    fig, axlist = mpf.plot(
-        plot_df,
-        type='candle',
-        style=s,
-        title=f"\nPROJECT OMEGA: XAUUSD 15M - {setup_info['type']} SETUP",
-        ylabel='Price ($)',
-        hlines=dict(hlines=hlines, colors=colors, linestyle='--', linewidths=1.5),
-        returnfig=True,
-        figsize=(11, 6)
-    )
+    htf_bias = "BUY" if data_1h['Close'].iloc[-1] > data_1h['Open'].iloc[-1] else "SELL"
+    last_close = round(float(data_15m['Close'].iloc[-1]), 2)
+    recent_low = round(float(data_15m['Low'].tail(20).min()), 2)
+    recent_high = round(float(data_15m['High'].tail(20).max()), 2)
 
-    ax = axlist[0]
-    fvg_top = setup_info["fvg_top"]
-    fvg_bottom = setup_info["fvg_bottom"]
-    ax.axhspan(fvg_bottom, fvg_top, color='#f0b90b', alpha=0.35, label='15M FVG Zone')
-    
-    last_idx = plot_df.index[-1]
-    ax.text(last_idx, setup_info["sl"], f" SL: ${setup_info['sl']:.2f}", color='#ff4d4d', fontweight='bold', fontsize=9)
-    ax.text(last_idx, setup_info["price"], f" ENTRY: ${setup_info['price']:.2f}", color='#00bcff', fontweight='bold', fontsize=9)
-    ax.text(last_idx, setup_info["tp"], f" TP: ${setup_info['tp']:.2f}", color='#00ff7f', fontweight='bold', fontsize=9)
-    ax.text(last_idx, (fvg_top + fvg_bottom) / 2, " AI FVG ZONE", color='#f0b90b', fontweight='bold', fontsize=9)
+    demand_zone = recent_low + 5.0
+    supply_zone = recent_high - 5.0
 
-    chart_file = "ict_setup.png"
-    fig.savefig(chart_file, bbox_inches='tight', dpi=150)
-    return chart_file
+    if last_close >= supply_zone and htf_bias == "SELL":
+        entry, sl, tp = last_close, round(recent_high + 3.0, 2), round(recent_low - 3.0, 2)
+        send_telegram_alert(f"🚀 *PROJECT OMEGA SELL SIGNAL*\nEntry: ${entry} | SL: ${sl} | TP: ${tp}", "SELL", entry, tp)
+        execute_mt5_order("XAUUSDm", "SELL", entry, sl, tp, risk_percent=1.0)
 
-def detect_ict_setup():
-    data = yf.download(tickers="GC=F", period="5d", interval="15m", progress=False)
-    if data.empty or len(data) < 5:
-        return None, None
+    elif last_close <= demand_zone and htf_bias == "BUY":
+        entry, sl, tp = last_close, round(recent_low - 3.0, 2), round(recent_high + 3.0, 2)
+        send_telegram_alert(f"🚀 *PROJECT OMEGA BUY SIGNAL*\nEntry: ${entry} | SL: ${sl} | TP: ${tp}", "BUY", entry, tp)
+        execute_mt5_order("XAUUSDm", "BUY", entry, sl, tp, risk_percent=1.0)
 
-    c1 = data.iloc[-4]
-    c2 = data.iloc[-3]
-    c3 = data.iloc[-2]
-    
-    c1_high = float(c1["High"].iloc[0]) if isinstance(c1["High"], pd.Series) else float(c1["High"])
-    c1_low = float(c1["Low"].iloc[0]) if isinstance(c1["Low"], pd.Series) else float(c1["Low"])
-    c3_high = float(c3["High"].iloc[0]) if isinstance(c3["High"], pd.Series) else float(c3["High"])
-    c3_low = float(c3["Low"].iloc[0]) if isinstance(c3["Low"], pd.Series) else float(c3["Low"])
-    
-    close_val = data.iloc[-1]["Close"]
-    current_price = float(close_val.iloc[0]) if isinstance(close_val, pd.Series) else float(close_val)
-
-    bullish_fvg = c1_high < c3_low
-    bearish_fvg = c1_low > c3_high
-
-    if bullish_fvg:
-        gap = f"${c1_high:.2f} - ${c3_low:.2f}"
-        setup = {
-            "type": "BUY",
-            "price": current_price,
-            "setup": f"15M Bullish FVG ({gap}) + BOS",
-            "tp": current_price + 15.0,
-            "sl": c1_low,
-            "fvg_top": c3_low,
-            "fvg_bottom": c1_high
-        }
-        return setup, data
-    elif bearish_fvg:
-        gap = f"${c3_high:.2f} - ${c1_low:.2f}"
-        setup = {
-            "type": "SELL",
-            "price": current_price,
-            "setup": f"15M Bearish FVG ({gap}) + BOS",
-            "tp": current_price - 15.0,
-            "sl": c1_high,
-            "fvg_top": c1_low,
-            "fvg_bottom": c3_high
-        }
-        return setup, data
-    
-    return None, None
-
-def run_ict_scanner():
-    print("Scanning Gold (XAUUSD) for 15M ICT Setups...")
-    setup, data = detect_ict_setup()
-    
-    if setup:
-        s_type = setup["type"]
-        s_price = setup["price"]
-        s_setup = setup["setup"]
-        s_tp = setup["tp"]
-        s_sl = setup["sl"]
-        
-        chart_path = generate_ict_chart(data, setup)
-        
-        alert_msg = (
-            "🚀 *PROJECT OMEGA ICT SIGNAL*\n\n"
-            f"Asset: Gold (XAUUSD)\n"
-            f"Type: {s_type}\n"
-            f"Entry: ${s_price:.2f}\n"
-            f"Confluence: {s_setup}\n"
-            f"TP: ${s_tp:.2f} | SL: ${s_sl:.2f}"
-        )
-        
-        send_telegram_alert(alert_msg, image_path=chart_path)
-        log_ict_trade(s_type, s_price, s_setup, s_tp, s_sl)
-        print(f"Signal Found: {s_type} analyzed, plotted, and saved to ict_setup.png!")
     else:
-        print("Scan complete. No active FVG/BOS setup on current 15M candle.")
+        print(f"Market at ${last_close} | HTF Bias: {htf_bias} | No setup found. Waiting...")
 
 if __name__ == "__main__":
-    run_ict_scanner()
+    run_project_omega()
