@@ -1,5 +1,12 @@
 [
     {
+        "timestamp": "2026-08-27 06:23 UTC",
+        "type": "SELL",
+        "price": "$4654.60",
+        "setup": "15M Bearish FVG ($4663.90 - $4670.80) + BOS",
+        "tp_sl": "TP: $4639.60 | SL: $4675.80"
+    },
+    {
         "timestamp": "2026-08-27 05:06 UTC",
         "type": "SELL",
         "price": "$4674.40",
