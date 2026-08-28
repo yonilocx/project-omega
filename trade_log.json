@@ -1,0 +1,26 @@
+[
+    {
+        "timestamp": "2026-08-28 11:32:05",
+        "symbol": "XAUUSDm",
+        "type": "BUY",
+        "lot_size": 0.02,
+        "price": "",
+        "sl": ""
+    },
+    {
+        "timestamp": "2026-08-28 11:32:39",
+        "symbol": "XAUUSDm",
+        "type": "BUY",
+        "lot_size": 0.02,
+        "price": "",
+        "sl": ""
+    },
+    {
+        "timestamp": "2026-08-28 11:42:30",
+        "symbol": "XAUUSDm",
+        "type": "BUY",
+        "lot_size": 0.02,
+        "price": "",
+        "sl": ""
+    }
+]
