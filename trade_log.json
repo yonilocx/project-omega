@@ -174,5 +174,13 @@
         "lot_size": 0.02,
         "price": "",
         "sl": ""
+    },
+    {
+        "timestamp": "2026-08-28 16:06:36",
+        "symbol": "XAUUSDm",
+        "type": "BUY",
+        "lot_size": 0.02,
+        "price": "",
+        "sl": ""
     }
 ]
