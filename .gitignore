@@ -2,3 +2,15 @@
 config.json
 __pycache__/
 *.log
+# Security & Credentials
+.env
+*.key
+*.pem
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Logs & Temporary Files
+*.log
+*.tmp

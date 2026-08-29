@@ -1,145 +1,106 @@
-import os
-import csv
-import datetime
-import requests
-import yfinance as yf
-import pandas as pd
 import MetaTrader5 as mt5
-from dotenv import load_dotenv
+from datetime import datetime, timezone
 
-load_dotenv()
-TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
-LOG_FILE = "trades_log.csv"
+def get_active_symbol():
+    """Returns XAUUSDm on weekdays and BTCUSDm on weekends."""
+    now = datetime.now(timezone.utc)
+    # Weekend window: Friday after 21:00 UTC through Sunday before 22:00 UTC
+    if now.weekday() == 5:  # Saturday
+        return "BTCUSDm"
+    if now.weekday() == 6 and now.hour < 22:  # Sunday before Gold opens
+        return "BTCUSDm"
+    if now.weekday() == 4 and now.hour >= 21:  # Friday after Gold closes
+        return "BTCUSDm"
+    
+    return "XAUUSDm"
 
-# --- Dynamic Risk Management Engine ---
-def calculate_dynamic_lot_size(risk_percent, entry_price, sl_price):
-    if not mt5.initialize():
-        return 0.01  # Safe fallback if MT5 info fetch fails
+def print_monday_report():
+    """Generates trade performance report for XAUUSDm and BTCUSDm."""
+    now = datetime.now(timezone.utc)
+    # Check if today is Monday morning (e.g. 00:00 - 01:00 UTC window)
+    if now.weekday() == 0 and now.hour == 0:
+        if not mt5.initialize():
+            return
+            
+        # Get historical deals from past 7 days
+        from_time = datetime(now.year, now.month, now.day - 7, tzinfo=timezone.utc)
+        history = mt5.history_deals_get(from_time, now)
         
+        if history:
+            gold_profit = sum(d.profit for d in history if d.symbol == "XAUUSDm")
+            btc_profit = sum(d.profit for d in history if d.symbol == "BTCUSDm")
+            
+            print("\n========================================")
+            print("       PROJECT OMEGA WEEKLY REPORT       ")
+            print("========================================")
+            print(f"  Gold (XAUUSDm) Profit: ${gold_profit:.2f}")
+            print(f"  Bitcoin (BTCUSDm) Profit: ${btc_profit:.2f}")
+            print(f"  Total Profit: ${gold_profit + btc_profit:.2f}")
+            print("========================================\n")
+
+def execute_trade(target_profit_usd=2.00, stop_loss_usd=3.00, risk_percent=0.01):
+    print_monday_report()
+
+    symbol = get_active_symbol()
+    print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Active Symbol: {symbol}")
+
+    if not mt5.initialize():
+        print("MT5 Initialization failed")
+        return
+
+    # Skip execution cycle if a trade is already open on this symbol
+    positions = mt5.positions_get(symbol=symbol)
+    if positions and len(positions) > 0:
+        print(f"Position already active for {symbol}. Skipping cycle.")
+        return
+
+    # Retrieve account balance & latest prices
     account_info = mt5.account_info()
-    mt5.shutdown()
-    
-    if account_info is None:
-        return 0.01
-    
+    tick = mt5.symbol_info_tick(symbol)
+    symbol_info = mt5.symbol_info(symbol)
+
+    if not account_info or not tick or not symbol_info:
+        print(f"Failed to pull market/account data for {symbol}")
+        return
+
     balance = account_info.balance
-    risk_amount = balance * (risk_percent / 100.0)  # 1% of balance
-    sl_distance = abs(entry_price - sl_price)       # Stop distance in dollars
-    
-    if sl_distance == 0:
-        return 0.01
-        
-    # Gold contract formula: 1 Standard Lot = 100 oz ($1 move = $100 per 1.0 lot)
-    raw_lot = risk_amount / (sl_distance * 100.0)
-    
-    # Round to MT5 0.01 minimum lot step
-    calculated_lot = round(raw_lot, 2)
-    return max(0.01, calculated_lot)
 
-# --- MT5 Execution Engine ---
-def execute_mt5_order(symbol, setup_type, price, sl, tp, risk_percent=1.0):
-    if not mt5.initialize():
-        print(f"❌ MT5 Connection Failed: {mt5.last_error()}")
-        return False
+    # Calculate lot size dynamically
+    lot = max(symbol_info.volume_min, round((balance * risk_percent) / 100, 2))
 
-    selected_symbol = symbol
-    symbol_info = mt5.symbol_info(selected_symbol)
-    if symbol_info is None:
-        selected_symbol = "GOLD"
-        symbol_info = mt5.symbol_info(selected_symbol)
-        if symbol_info is None:
-            print("❌ Symbol XAUUSDm/GOLD not found in Exness MT5.")
-            mt5.shutdown()
-            return False
+    # Order Direction (Default: BUY)
+    order_type = mt5.ORDER_TYPE_BUY
+    price = tick.ask if order_type == mt5.ORDER_TYPE_BUY else tick.bid
 
-    if not symbol_info.visible:
-        mt5.symbol_select(selected_symbol, True)
+    # Calculate TP / SL distances
+    # Symbol contract size: Gold = 100, BTC = 1
+    contract_size = symbol_info.trade_contract_size if symbol_info.trade_contract_size > 0 else 1
+    tp_distance = target_profit_usd / (lot * contract_size)
+    sl_distance = stop_loss_usd / (lot * contract_size)
 
-    # Dynamic Lot Calculation
-    lot_size = calculate_dynamic_lot_size(risk_percent, price, sl)
-    print(f"🎯 Dynamic Risk Manager: Calculated Lot Size = {lot_size} (Risking {risk_percent}% of balance)")
-
-    order_type = mt5.ORDER_TYPE_BUY_LIMIT if setup_type == "BUY" else mt5.ORDER_TYPE_SELL_LIMIT
+    tp_price = price + tp_distance if order_type == mt5.ORDER_TYPE_BUY else price - tp_distance
+    sl_price = price - sl_distance if order_type == mt5.ORDER_TYPE_BUY else price + sl_distance
 
     request = {
-        "action": mt5.TRADE_ACTION_PENDING,
-        "symbol": selected_symbol,
-        "volume": float(lot_size),
+        "action": mt5.TRADE_ACTION_DEAL,
+        "symbol": symbol,
+        "volume": lot,
         "type": order_type,
-        "price": float(price),
-        "sl": float(sl),
-        "tp": float(tp),
+        "price": price,
+        "sl": sl_price,
+        "tp": tp_price,
         "deviation": 20,
-        "magic": 999111,
-        "comment": "Project Omega Dynamic Execution",
+        "magic": 123456,
+        "comment": f"Omega $2 Target ({symbol})",
         "type_time": mt5.ORDER_TIME_GTC,
         "type_filling": mt5.ORDER_FILLING_IOC,
     }
 
     result = mt5.order_send(request)
-    if result.retcode == mt5.TRADE_RETCODE_DONE:
-        print(f"✅ Exness Order Placed! Ticket: {result.order}")
-        mt5.shutdown()
-        return True
+    if result.retcode != mt5.TRADE_RETCODE_DONE:
+        print(f"Order failed for {symbol}: {result.comment}")
     else:
-        print(f"❌ MT5 Execution Failed (Error Code: {result.retcode})")
-        mt5.shutdown()
-        return False
-
-# --- Telegram Alert Dispatcher ---
-def send_telegram_alert(message_text, setup_type, current_price, take_profit):
-    if setup_type == "SELL" and current_price <= take_profit:
-        print("Setup Invalidated: Price hit TP before entry.")
-        return
-    elif setup_type == "BUY" and current_price >= take_profit:
-        print("Setup Invalidated: Price hit TP before entry.")
-        return
-
-    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
-    payload = {"chat_id": TELEGRAM_CHAT_ID, "text": message_text, "parse_mode": "Markdown"}
-    try:
-        requests.post(url, json=payload)
-        print("Telegram alert sent successfully.")
-    except Exception as e:
-        print(f"Telegram Error: {e}")
-
-# --- Main Engine ---
-def run_project_omega():
-    timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    print(f"\n--- Running Project Omega Engine [{timestamp}] ---")
-
-    data_15m = yf.download("GC=F", period="5d", interval="15m", progress=False)
-    data_1h = yf.download("GC=F", period="10d", interval="1h", progress=False)
-
-    if data_15m.empty or data_1h.empty:
-        return
-
-    if isinstance(data_15m.columns, pd.MultiIndex):
-        data_15m.columns = data_15m.columns.get_level_values(0)
-    if isinstance(data_1h.columns, pd.MultiIndex):
-        data_1h.columns = data_1h.columns.get_level_values(0)
-
-    htf_bias = "BUY" if data_1h['Close'].iloc[-1] > data_1h['Open'].iloc[-1] else "SELL"
-    last_close = round(float(data_15m['Close'].iloc[-1]), 2)
-    recent_low = round(float(data_15m['Low'].tail(20).min()), 2)
-    recent_high = round(float(data_15m['High'].tail(20).max()), 2)
-
-    demand_zone = recent_low + 5.0
-    supply_zone = recent_high - 5.0
-
-    if last_close >= supply_zone and htf_bias == "SELL":
-        entry, sl, tp = last_close, round(recent_high + 3.0, 2), round(recent_low - 3.0, 2)
-        send_telegram_alert(f"🚀 *PROJECT OMEGA SELL SIGNAL*\nEntry: ${entry} | SL: ${sl} | TP: ${tp}", "SELL", entry, tp)
-        execute_mt5_order("XAUUSDm", "SELL", entry, sl, tp, risk_percent=1.0)
-
-    elif last_close <= demand_zone and htf_bias == "BUY":
-        entry, sl, tp = last_close, round(recent_low - 3.0, 2), round(recent_high + 3.0, 2)
-        send_telegram_alert(f"🚀 *PROJECT OMEGA BUY SIGNAL*\nEntry: ${entry} | SL: ${sl} | TP: ${tp}", "BUY", entry, tp)
-        execute_mt5_order("XAUUSDm", "BUY", entry, sl, tp, risk_percent=1.0)
-
-    else:
-        print(f"Market at ${last_close} | HTF Bias: {htf_bias} | No setup found. Waiting...")
+        print(f"Trade executed! Symbol: {symbol} | Ticket: {result.order}")
 
 if __name__ == "__main__":
-    run_project_omega()
+    execute_trade()

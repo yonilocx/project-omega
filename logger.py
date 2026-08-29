@@ -1,32 +1,44 @@
 import json
 import os
+import subprocess
 from datetime import datetime
 
-LOG_FILE = "trades.json"
+LOG_FILE = "trade_log.json"
 
-def log_ict_trade(signal_type, price, setup_type, tp, sl):
-    trade_data = {
-        "timestamp": datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC"),
-        "type": signal_type,
-        "price": f"${price:.2f}",
-        "setup": setup_type,
-        "tp_sl": f"TP: ${tp:.2f} | SL: ${sl:.2f}"
+def push_to_github():
+    try:
+        subprocess.run(["git", "add", LOG_FILE], check=True)
+        subprocess.run(["git", "commit", "-m", "auto: update trade_log.json"], check=True)
+        subprocess.run(["git", "push"], check=True)
+        print("?? Automatically synced trade_log.json to GitHub!")
+    except Exception as e:
+        print(f"?? Git push failed: {e}")
+
+def log_ict_trade(symbol, trade_type, lot_size, price, sl):
+    p_val = float(price) if price is not None else 0.0
+    sl_val = float(sl) if sl is not None else 0.0
+
+    entry = {
+        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "symbol": str(symbol),
+        "type": str(trade_type),
+        "lot_size": float(lot_size),
+        "price": f"",
+        "sl": f""
     }
 
-    trades = []
+    logs = []
     if os.path.exists(LOG_FILE):
-        with open(LOG_FILE, "r") as f:
-            try:
-                trades = json.load(f)
-            except:
-                trades = []
+        try:
+            with open(LOG_FILE, "r") as f:
+                logs = json.load(f)
+        except Exception:
+            logs = []
 
-    trades.insert(0, trade_data)
+    logs.append(entry)
 
     with open(LOG_FILE, "w") as f:
-        json.dump(trades[:20], f, indent=4)
+        json.dump(logs, f, indent=4)
 
-    os.system("git add trades.json index.html")
-    os.system('git commit -m "Auto-update ICT Trade Dashboard"')
-    os.system("git push origin main")
-
+    print("?? Trade successfully logged to trade_log.json")
+    push_to_github()
